@@ -195,13 +195,24 @@ app.post('/comments', async (req, res) => {
 app.post('/likes', async (req, res) => {
     const { post_id, user_id } = req.body;
     try {
-      const query = `
+      // Check if the user already liked the post
+      const checkQuery = `
+        SELECT * FROM likes
+        WHERE post_id = $1 AND user_id = $2;
+      `;
+      const checkResult = await db.query(checkQuery, [post_id, user_id]);
+  
+      if (checkResult.rows.length > 0) {
+        return res.status(400).json({ error: 'User has already liked this post' });
+      }
+  
+      // Insert a new like
+      const insertQuery = `
         INSERT INTO likes (post_id, user_id)
         VALUES ($1, $2)
         RETURNING *;
       `;
-      const values = [post_id, user_id];
-      const result = await db.query(query, values);
+      const insertResult = await db.query(insertQuery, [post_id, user_id]);
   
       // Update likes_count in feed
       const updateQuery = `
@@ -211,13 +222,13 @@ app.post('/likes', async (req, res) => {
       `;
       await db.query(updateQuery, [post_id]);
   
-      res.status(201).json(result.rows[0]);
+      res.status(201).json(insertResult.rows[0]);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Error liking post' });
     }
   });
-  
+    
   // Unlike a post
   app.delete('/likes', async (req, res) => {
     const { post_id, user_id } = req.body;
