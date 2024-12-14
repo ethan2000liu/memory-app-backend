@@ -145,6 +145,50 @@ app.get('/feed', async (req, res) => {
     }
   });
 
+  // --- COMMENTS API ---
+
+// Add a comment to a post
+app.post('/comments', async (req, res) => {
+    const { post_id, user_id, content } = req.body;
+    try {
+      const query = `
+        INSERT INTO comments (post_id, user_id, content)
+        VALUES ($1, $2, $3)
+        RETURNING *;
+      `;
+      const values = [post_id, user_id, content];
+      const result = await db.query(query, values);
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error adding comment' });
+    }
+  });
+  
+  // Retrieve comments for a specific post
+  app.get('/comments/:postId', async (req, res) => {
+    const { postId } = req.params;
+    try {
+      const query = `
+        SELECT 
+          comments.id, 
+          comments.user_id, 
+          comments.content, 
+          comments.created_at, 
+          users.name AS user_name
+        FROM comments
+        JOIN users ON comments.user_id = users.id
+        WHERE comments.post_id = $1
+        ORDER BY comments.created_at DESC;
+      `;
+      const result = await db.query(query, [postId]);
+      res.json(result.rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error retrieving comments' });
+    }
+  });
+  
   
 // --- SERVER ---
 const PORT = 3000;
