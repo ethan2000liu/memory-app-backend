@@ -189,6 +189,83 @@ app.post('/comments', async (req, res) => {
     }
   });
   
+  // --- LIKES API ---
+
+// Like a post
+app.post('/likes', async (req, res) => {
+    const { post_id, user_id } = req.body;
+    try {
+      const query = `
+        INSERT INTO likes (post_id, user_id)
+        VALUES ($1, $2)
+        RETURNING *;
+      `;
+      const values = [post_id, user_id];
+      const result = await db.query(query, values);
+  
+      // Update likes_count in feed
+      const updateQuery = `
+        UPDATE feed
+        SET likes_count = likes_count + 1
+        WHERE id = $1;
+      `;
+      await db.query(updateQuery, [post_id]);
+  
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error liking post' });
+    }
+  });
+  
+  // Unlike a post
+  app.delete('/likes', async (req, res) => {
+    const { post_id, user_id } = req.body;
+    try {
+      const query = `
+        DELETE FROM likes
+        WHERE post_id = $1 AND user_id = $2
+        RETURNING *;
+      `;
+      const values = [post_id, user_id];
+      const result = await db.query(query, values);
+  
+      // Update likes_count in feed
+      const updateQuery = `
+        UPDATE feed
+        SET likes_count = likes_count - 1
+        WHERE id = $1;
+      `;
+      await db.query(updateQuery, [post_id]);
+  
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error unliking post' });
+    }
+  });
+  
+  // Get likes for a specific post
+  app.get('/likes/:postId', async (req, res) => {
+    const { postId } = req.params;
+    try {
+      const query = `
+        SELECT 
+          likes.user_id, 
+          likes.created_at, 
+          users.name AS user_name
+        FROM likes
+        JOIN users ON likes.user_id = users.id
+        WHERE likes.post_id = $1;
+      `;
+      const result = await db.query(query, [postId]);
+      res.json(result.rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error retrieving likes' });
+    }
+  });
+  
   
 // --- SERVER ---
 const PORT = 3000;
