@@ -229,17 +229,28 @@ app.post('/likes', async (req, res) => {
     }
   });
     
-  // Unlike a post
-  app.delete('/likes', async (req, res) => {
+// Unlike a post
+app.delete('/likes', async (req, res) => {
     const { post_id, user_id } = req.body;
     try {
-      const query = `
+      // Check if the user has already liked the post
+      const checkQuery = `
+        SELECT * FROM likes
+        WHERE post_id = $1 AND user_id = $2;
+      `;
+      const checkResult = await db.query(checkQuery, [post_id, user_id]);
+  
+      if (checkResult.rows.length === 0) {
+        return res.status(400).json({ error: 'Cannot unlike because the post is not liked' });
+      }
+  
+      // Delete the like
+      const deleteQuery = `
         DELETE FROM likes
         WHERE post_id = $1 AND user_id = $2
         RETURNING *;
       `;
-      const values = [post_id, user_id];
-      const result = await db.query(query, values);
+      const deleteResult = await db.query(deleteQuery, [post_id, user_id]);
   
       // Update likes_count in feed
       const updateQuery = `
@@ -249,12 +260,13 @@ app.post('/likes', async (req, res) => {
       `;
       await db.query(updateQuery, [post_id]);
   
-      res.json(result.rows[0]);
+      res.json(deleteResult.rows[0]);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Error unliking post' });
     }
   });
+  
   
   // Get likes for a specific post
   app.get('/likes/:postId', async (req, res) => {
