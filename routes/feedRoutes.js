@@ -3,10 +3,7 @@ const feedController = require('../controllers/feedController');
 
 const router = express.Router();
 
-// Route to fetch all feed posts
+// Retrieve the feed (public or following)
 router.get('/', feedController.getFeed);
-
-// Route to add a new feed item
-router.post('/', feedController.addToFeed);
 
 module.exports = router;

@@ -1,46 +1,41 @@
-const db = require('../db'); // Import database connection
+const db = require('../db');
 
-// Fetch all posts for the feed
+// Retrieve the public feed (all public posts) or following feed
 exports.getFeed = async (req, res) => {
+  const { user_id, type = 'public', limit = 10, offset = 0 } = req.query;
+
   try {
-    const query = `
-      SELECT 
-        feed.id, 
-        feed.user_id, 
-        feed.memory_id, 
-        feed.likes_count, 
-        feed.comments_count, 
-        feed.created_at, 
-        memories.description, 
-        memories.file_url, 
-        users.name AS user_name
-      FROM feed
-      JOIN memories ON feed.memory_id = memories.id
-      JOIN users ON feed.user_id = users.id
-      ORDER BY feed.created_at DESC;
-    `;
-    const result = await db.query(query);
+    let query;
+    let values = [parseInt(limit), parseInt(offset)];
+
+    if (type === 'public') {
+      // Public Feed: All public posts
+      query = `
+        SELECT id, user_id, description, file_url, tags, is_public, created_at
+        FROM memories
+        WHERE is_public = TRUE
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2;
+      `;
+    } else if (type === 'following' && user_id) {
+      // Following Feed: Posts from followed users
+      query = `
+        SELECT m.id, m.user_id, m.description, m.file_url, m.tags, m.is_public, m.created_at
+        FROM memories m
+        JOIN followers f ON m.user_id = f.user_id
+        WHERE f.follower_id = $3 AND m.is_public = TRUE
+        ORDER BY m.created_at DESC
+        LIMIT $1 OFFSET $2;
+      `;
+      values.push(user_id);
+    } else {
+      return res.status(400).json({ error: 'Invalid feed type or missing user_id for following feed' });
+    }
+
+    const result = await db.query(query, values);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error retrieving feed' });
-  }
-};
-
-// Add a new feed item
-exports.addToFeed = async (req, res) => {
-  const { user_id, memory_id } = req.body;
-  try {
-    const query = `
-      INSERT INTO feed (user_id, memory_id, likes_count, comments_count)
-      VALUES ($1, $2, 0, 0)
-      RETURNING *;
-    `;
-    const values = [user_id, memory_id];
-    const result = await db.query(query, values);
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error adding to feed' });
   }
 };
