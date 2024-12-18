@@ -3,10 +3,13 @@ const commentController = require('../controllers/commentController');
 
 const router = express.Router();
 
-// Route to add a new comment
+// Add a comment to a memory
 router.post('/', commentController.addComment);
 
-// Route to retrieve all comments for a post
-router.get('/:postId', commentController.getCommentsByPostId);
+// Get all comments for a specific memory
+router.get('/:memoryId', commentController.getCommentsByMemoryId);
+
+// Delete a comment
+router.delete('/', commentController.deleteComment);
 
 module.exports = router;
