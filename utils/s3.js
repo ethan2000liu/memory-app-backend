@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const dotenv = require('dotenv');
 
@@ -25,20 +25,38 @@ exports.generateUploadURL = async (key, contentType) => {
   }
 
   const params = {
-    Bucket: process.env.AWS_BUCKET_NAME, // Bucket name from .env
-    Key: key, // File key
-    ContentType: contentType, // MIME type
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
   };
 
   try {
-    // Create a command for the PutObject operation
     const command = new PutObjectCommand(params);
-
-    // Generate a pre-signed URL
-    const uploadURL = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // Expires in 60 seconds
+    const uploadURL = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes expiration
     return uploadURL;
   } catch (error) {
     console.error('Error generating S3 upload URL:', error);
+    throw error;
+  }
+};
+
+// Generate a pre-signed URL for downloading files
+exports.generateDownloadURL = async (key) => {
+  if (!process.env.AWS_BUCKET_NAME) {
+    throw new Error('AWS_BUCKET_NAME is not defined in the environment variables');
+  }
+
+  const params = {
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+  };
+
+  try {
+    const command = new GetObjectCommand(params);
+    const downloadURL = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes expiration
+    return downloadURL;
+  } catch (error) {
+    console.error('Error generating S3 download URL:', error);
     throw error;
   }
 };
