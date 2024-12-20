@@ -13,8 +13,8 @@ console.log('AWS_BUCKET_NAME:', process.env.AWS_BUCKET_NAME);
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
@@ -35,7 +35,7 @@ exports.generateUploadURL = async (key, contentType) => {
     const command = new PutObjectCommand(params);
 
     // Generate a pre-signed URL
-    const uploadURL = await getSignedUrl(s3Client, command, { expiresIn: 60 }); // Expires in 60 seconds
+    const uploadURL = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // Expires in 60 seconds
     return uploadURL;
   } catch (error) {
     console.error('Error generating S3 upload URL:', error);
