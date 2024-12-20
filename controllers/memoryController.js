@@ -20,10 +20,13 @@ exports.createMemory = async (req, res) => {
     const values = [user_id, description, file_url, tags, is_public || false];
     const result = await db.query(query, values);
 
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json({
+      message: 'Memory created successfully',
+      memory: result.rows[0],
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error creating memory' });
+    console.error('Error creating memory:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -39,10 +42,10 @@ exports.getMemoriesByUser = async (req, res) => {
       ORDER BY created_at DESC;
     `;
     const result = await db.query(query, [userId]);
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error retrieving memories' });
+    console.error('Error retrieving memories:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -64,10 +67,10 @@ exports.getMemoryById = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    res.json(memory);
+    return res.json(memory);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error retrieving memory' });
+    console.error('Error retrieving memory:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -93,10 +96,10 @@ exports.editMemory = async (req, res) => {
     `;
     const updateResult = await db.query(updateQuery, [description, tags, id]);
 
-    res.json(updateResult.rows[0]);
+    return res.json(updateResult.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error updating memory' });
+    console.error('Error updating memory:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -120,10 +123,10 @@ exports.deleteMemory = async (req, res) => {
     const deleteQuery = `DELETE FROM memories WHERE id = $1 RETURNING *;`;
     const deleteResult = await db.query(deleteQuery, [id]);
 
-    res.json({ message: 'Memory deleted successfully', memory: deleteResult.rows[0] });
+    return res.json({ message: 'Memory deleted successfully', memory: deleteResult.rows[0] });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error deleting memory' });
+    console.error('Error deleting memory:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -149,9 +152,9 @@ exports.togglePrivacy = async (req, res) => {
     `;
     const updateResult = await db.query(updateQuery, [is_public, id]);
 
-    res.json(updateResult.rows[0]);
+    return res.json(updateResult.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error updating privacy' });
+    console.error('Error updating privacy:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
