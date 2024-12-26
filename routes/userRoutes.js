@@ -10,5 +10,3 @@ router.get('/:id', userController.getUserProfile);
 router.put('/:id', userController.updateUserProfile);
 
 module.exports = router;
-
-router.post('/', userController.createUser);
