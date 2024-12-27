@@ -6,6 +6,11 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 const authController = {
   register: async (req, res) => {
     try {
@@ -73,6 +78,40 @@ const authController = {
         message: 'Logout successful'
       });
     } catch (error) {
+      res.status(500).json({
+        error: error.message
+      });
+    }
+  },
+
+  checkEmailVerification: async (req, res) => {
+    try {
+      const { email } = req.params;
+      
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+        filters: {
+          email: email
+        }
+      });
+
+      if (error) throw error;
+
+      if (!data?.users || data.users.length === 0) {
+        return res.status(404).json({
+          error: 'User not found'
+        });
+      }
+
+      const user = data.users[0];
+
+      res.status(200).json({
+        email: user.email,
+        email_verified: user.email_confirmed_at !== null,
+        verification_date: user.email_confirmed_at
+      });
+      
+    } catch (error) {
+      console.error('Error checking email verification:', error);
       res.status(500).json({
         error: error.message
       });
