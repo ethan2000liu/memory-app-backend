@@ -90,28 +90,59 @@ const authController = {
       
       const { data, error } = await supabaseAdmin.auth.admin.listUsers({
         filters: {
-          email: email
+          email: email.toLowerCase()
         }
       });
 
       if (error) throw error;
 
-      if (!data?.users || data.users.length === 0) {
+      const user = data?.users?.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+      if (!user) {
         return res.status(404).json({
           error: 'User not found'
         });
       }
 
-      const user = data.users[0];
-
-      res.status(200).json({
+      // Base response
+      const response = {
         email: user.email,
-        email_verified: user.email_confirmed_at !== null,
-        verification_date: user.email_confirmed_at
-      });
+        email_verified: false // Default to false
+      };
+
+      // Only set to true and add verification_date if it exists
+      if (user.email_confirmed_at) {
+        response.email_verified = true;
+        response.verification_date = user.email_confirmed_at;
+      }
+
+      res.status(200).json(response);
       
     } catch (error) {
       console.error('Error checking email verification:', error);
+      res.status(500).json({
+        error: error.message
+      });
+    }
+  },
+
+  resendVerificationEmail: async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      const { data, error } = await supabaseAdmin.auth.resend({
+        type: 'signup',
+        email: email
+      });
+
+      if (error) throw error;
+
+      res.status(200).json({
+        message: 'Verification email resent successfully'
+      });
+      
+    } catch (error) {
+      console.error('Error resending verification email:', error);
       res.status(500).json({
         error: error.message
       });
