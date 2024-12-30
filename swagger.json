@@ -1,0 +1,537 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Memory App API",
+    "version": "1.0.0",
+    "description": "API documentation for Memory App"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registration successful" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/auth/verify-email/{email}": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Check email verification status",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": { "type": "string" },
+                    "email_verified": { "type": "boolean" },
+                    "verification_date": { 
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Email not found" }
+        }
+      }
+    },
+    "/auth/resend-verification": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Resend verification email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Verification email sent" },
+          "400": { "description": "Invalid email" }
+        }
+      }
+    },
+    "/memories": {
+      "post": {
+        "tags": ["Memories"],
+        "summary": "Create new memory",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": { "type": "string" },
+                  "description": { "type": "string" },
+                  "file_url": { "type": "string" },
+                  "tags": { "type": "array" },
+                  "is_public": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Memory created" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/memories/{id}": {
+      "get": {
+        "tags": ["Memories"],
+        "summary": "Get memory by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Memory details" },
+          "404": { "description": "Memory not found" }
+        }
+      },
+      "put": {
+        "tags": ["Memories"],
+        "summary": "Update memory",
+        "security": [{ "bearerAuth": [] }]
+      },
+      "delete": {
+        "tags": ["Memories"],
+        "summary": "Delete memory",
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/comments": {
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Add comment to memory",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "memory_id": { "type": "string" },
+                  "user_id": { "type": "string" },
+                  "content": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/comments/{memoryId}": {
+      "get": {
+        "tags": ["Comments"],
+        "summary": "Get comments for memory",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "memoryId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "default": 0 }
+          }
+        ]
+      }
+    },
+    "/s3/upload-url": {
+      "post": {
+        "tags": ["S3"],
+        "summary": "Get S3 upload URL",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "contentType": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s3/download-url": {
+      "post": {
+        "tags": ["S3"],
+        "summary": "Get S3 download URL",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/followers/follow": {
+      "post": {
+        "tags": ["Followers"],
+        "summary": "Follow a user",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "follower_id": { "type": "string" },
+                  "user_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Follow successful" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/followers/unfollow": {
+      "post": {
+        "tags": ["Followers"],
+        "summary": "Unfollow a user",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "follower_id": { "type": "string" },
+                  "user_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Unfollow successful" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/followers/{userId}/followers": {
+      "get": {
+        "tags": ["Followers"],
+        "summary": "Get user's followers",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of followers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "followers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "avatar_url": { "type": "string" },
+                          "created_at": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/followers/{userId}/following": {
+      "get": {
+        "tags": ["Followers"],
+        "summary": "Get users being followed",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users being followed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "following": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "avatar_url": { "type": "string" },
+                          "created_at": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/likes": {
+      "post": {
+        "tags": ["Likes"],
+        "summary": "Like a post",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "post_id": { "type": "string" },
+                  "user_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Like added" },
+          "400": { "description": "Already liked" }
+        }
+      },
+      "delete": {
+        "tags": ["Likes"],
+        "summary": "Unlike a post",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "post_id": { "type": "string" },
+                  "user_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Like removed" },
+          "400": { "description": "Not liked" }
+        }
+      }
+    },
+    "/feed": {
+      "get": {
+        "tags": ["Feed"],
+        "summary": "Get user feed",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feed items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "user_id": { "type": "string" },
+                      "content": { "type": "string" },
+                      "created_at": { "type": "string", "format": "date-time" },
+                      "likes_count": { "type": "integer" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "No posts found" }
+        }
+      }
+    },
+    "/memories/privacy": {
+      "put": {
+        "tags": ["Memories"],
+        "summary": "Toggle memory privacy",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "memory_id": { "type": "string" },
+                  "is_public": { "type": "boolean" }
+                },
+                "required": ["memory_id", "is_public"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Privacy setting updated" },
+          "404": { "description": "Memory not found" },
+          "403": { "description": "Unauthorized to modify this memory" }
+        }
+      }
+    },
+    "/likes/{postId}": {
+      "get": {
+        "tags": ["Likes"],
+        "summary": "Get likes for a post",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "postId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of likes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "user_id": { "type": "string" },
+                      "created_at": { "type": "string", "format": "date-time" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+} 
