@@ -66,19 +66,35 @@ exports.unlikePost = async (req, res) => {
 
 // Get likes for a memory
 exports.getLikesByPostId = async (req, res) => {
-  const { postId } = req.params;
-
   try {
+    // Clean up the memoryId parameter
+    const memoryId = req.params.memoryId.replace(/[^a-zA-Z0-9-]/g, '');
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(memoryId)) {
+      return res.status(400).json({ error: 'Invalid memory ID format' });
+    }
+
     const query = `
-      SELECT l.*, u.name as user_name
+      SELECT 
+        l.*,
+        u.name as user_name,
+        u.avatar_url as user_avatar,
+        u.email as user_email
       FROM likes l
       JOIN users u ON l.user_id = u.id
       WHERE l.memory_id = $1
       ORDER BY l.created_at DESC;
     `;
-    const result = await db.query(query, [postId]);
+    const result = await db.query(query, [memoryId]);
 
-    res.json(result.rows);
+    const response = {
+      likes: result.rows,
+      total_count: result.rows.length
+    };
+
+    res.json(response);
   } catch (err) {
     console.error('Error getting likes:', err);
     res.status(500).json({ error: 'Error getting likes' });

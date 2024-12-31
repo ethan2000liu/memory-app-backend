@@ -13,6 +13,6 @@ router.post('/', likeController.likePost);
 router.delete('/', likeController.unlikePost);
 
 // Route to retrieve all likes for a post
-router.get('/:postId', likeController.getLikesByPostId);
+router.get('/:memoryId', likeController.getLikesByPostId);
 
 module.exports = router;
