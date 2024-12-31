@@ -1,100 +1,127 @@
-const db = require('../db'); // Import database connection
+const db = require('../db');
 
 // Follow a user
 exports.followUser = async (req, res) => {
-  const { user_id, follower_id } = req.body;
+  const follower_id = req.user.user_id; // Get from auth token
+  const { user_id } = req.body; // ID of user to follow
 
-  if (!user_id || !follower_id) {
-    return res.status(400).json({ error: 'user_id and follower_id are required' });
+  if (!user_id) {
+    return res.status(400).json({ error: 'user_id of user to follow is required' });
   }
 
+  // Prevent following yourself
   if (user_id === follower_id) {
     return res.status(400).json({ error: 'You cannot follow yourself' });
   }
 
   try {
-    const query = `
-      INSERT INTO followers (user_id, follower_id)
-      VALUES ($1, $2)
-      ON CONFLICT (user_id, follower_id) DO NOTHING
-      RETURNING *;
+    // Check if already following
+    const checkQuery = `
+      SELECT * FROM followers 
+      WHERE follower_id = $1 AND user_id = $2
     `;
-    const result = await db.query(query, [user_id, follower_id]);
+    const checkResult = await db.query(checkQuery, [follower_id, user_id]);
 
-    if (result.rows.length === 0) {
-      return res.status(409).json({ error: 'You are already following this user' });
+    if (checkResult.rows.length > 0) {
+      return res.status(400).json({ error: 'Already following this user' });
     }
 
-    res.status(201).json({ message: 'Followed successfully', data: result.rows[0] });
+    // Create follow relationship
+    const query = `
+      INSERT INTO followers (follower_id, user_id)
+      VALUES ($1, $2)
+      RETURNING *;
+    `;
+    const result = await db.query(query, [follower_id, user_id]);
+
+    res.status(201).json({
+      message: 'Successfully followed user',
+      follow: result.rows[0]
+    });
   } catch (err) {
-    console.error(err);
+    console.error('Error following user:', err);
     res.status(500).json({ error: 'Error following user' });
   }
 };
 
 // Unfollow a user
 exports.unfollowUser = async (req, res) => {
-  const { user_id, follower_id } = req.body;
+  const follower_id = req.user.user_id; // Get from auth token
+  const { user_id } = req.body; // ID of user to unfollow
 
-  if (!user_id || !follower_id) {
-    return res.status(400).json({ error: 'user_id and follower_id are required' });
+  if (!user_id) {
+    return res.status(400).json({ error: 'user_id of user to unfollow is required' });
   }
 
   try {
     const query = `
       DELETE FROM followers
-      WHERE user_id = $1 AND follower_id = $2
+      WHERE follower_id = $1 AND user_id = $2
       RETURNING *;
     `;
-    const result = await db.query(query, [user_id, follower_id]);
+    const result = await db.query(query, [follower_id, user_id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'You are not following this user' });
+      return res.status(404).json({ error: 'Follow relationship not found' });
     }
 
-    res.json({ message: 'Unfollowed successfully', data: result.rows[0] });
+    res.json({ message: 'Successfully unfollowed user' });
   } catch (err) {
-    console.error(err);
+    console.error('Error unfollowing user:', err);
     res.status(500).json({ error: 'Error unfollowing user' });
   }
 };
 
-// Get a user's followers
+// Get followers of a user
 exports.getFollowers = async (req, res) => {
   const { userId } = req.params;
+  const { limit = 10, offset = 0 } = req.query;
 
   try {
     const query = `
-      SELECT u.id, u.name, u.avatar_url, u.created_at
+      SELECT 
+        u.id,
+        u.name,
+        u.avatar_url,
+        f.created_at as followed_at
       FROM followers f
       JOIN users u ON f.follower_id = u.id
-      WHERE f.user_id = $1;
+      WHERE f.user_id = $1
+      ORDER BY f.created_at DESC
+      LIMIT $2 OFFSET $3;
     `;
-    const result = await db.query(query, [userId]);
+    const result = await db.query(query, [userId, limit, offset]);
 
-    res.json({ followers: result.rows });
+    res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error retrieving followers' });
+    console.error('Error getting followers:', err);
+    res.status(500).json({ error: 'Error getting followers' });
   }
 };
 
-// Get users a specific user is following
+// Get users that a user is following
 exports.getFollowing = async (req, res) => {
   const { userId } = req.params;
+  const { limit = 10, offset = 0 } = req.query;
 
   try {
     const query = `
-      SELECT u.id, u.name, u.avatar_url, u.created_at
+      SELECT 
+        u.id,
+        u.name,
+        u.avatar_url,
+        f.created_at as followed_at
       FROM followers f
       JOIN users u ON f.user_id = u.id
-      WHERE f.follower_id = $1;
+      WHERE f.follower_id = $1
+      ORDER BY f.created_at DESC
+      LIMIT $2 OFFSET $3;
     `;
-    const result = await db.query(query, [userId]);
+    const result = await db.query(query, [userId, limit, offset]);
 
-    res.json({ following: result.rows });
+    res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error retrieving following list' });
+    console.error('Error getting following:', err);
+    res.status(500).json({ error: 'Error getting following' });
   }
 };

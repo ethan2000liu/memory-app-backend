@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+const authMiddleware = require('./middleware/auth');
 
 // Import route files
 const feedRoutes = require('./routes/feedRoutes');
@@ -30,17 +31,22 @@ app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Routes
-app.use('/feed', feedRoutes);
-app.use('/comments', commentRoutes);
-app.use('/likes', likeRoutes);
-app.use('/memories', memoryRoutes);
-app.use('/users', userRoutes);
-app.use('/followers', followerRoutes); 
-app.use('/s3', s3Routes);
 app.use('/auth', authRoutes);
 
+// Protected routes
+app.use('/feed', authMiddleware, feedRoutes);
+app.use('/comments', authMiddleware, commentRoutes);
+app.use('/likes', authMiddleware, likeRoutes);
+app.use('/memories', authMiddleware, memoryRoutes);
+app.use('/users', authMiddleware, userRoutes);
+app.use('/followers', authMiddleware, followerRoutes);
+app.use('/s3', authMiddleware, s3Routes);
 
-
+// Verify JWT_SECRET is loaded
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is not set in environment variables');
+  process.exit(1);
+}
 
 // Start the server
 const PORT = process.env.PORT || 3000;

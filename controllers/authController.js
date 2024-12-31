@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const userModel = require('../models/userModel');
+const jwt = require('jsonwebtoken');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -16,30 +17,36 @@ const authController = {
     try {
       const { email, password, name } = req.body;
       
+      // Default name is the part before @ in email if name not provided
+      const defaultName = name || email.split('@')[0];
+
       // Register with Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
-        password,
+        password
       });
 
       if (authError) throw authError;
 
       // Create user in our database
-      const userData = {
+      const { data: userData, error: userError } = await userModel.createUser({
         id: authData.user.id,
         email: authData.user.email,
-        name: name || null,
-        avatar_url: null
-      };
+        name: defaultName,
+        created_at: new Date(),
+        updated_at: new Date()
+      });
 
-      const user = await userModel.createUser(userData);
+      if (userError) throw userError;
 
       res.status(201).json({
-        message: 'Registration successful',
-        user: user
+        message: 'Registration successful. Please check your email for verification.',
+        email: authData.user.email
       });
+
     } catch (error) {
-      res.status(400).json({
+      console.error('Registration error:', error);
+      res.status(500).json({
         error: error.message
       });
     }
@@ -56,13 +63,24 @@ const authController = {
 
       if (error) throw error;
 
+      // Create JWT with expiration
+      const token = jwt.sign(
+        { 
+          user_id: data.user.id,
+          email: data.user.email 
+        }, 
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' } // Token expires in 24 hours
+      );
+
       res.status(200).json({
-        message: 'Login successful',
+        token,
         user: data.user,
-        session: data.session
+        expiresIn: 24 * 60 * 60 * 1000 // milliseconds until expiration
       });
+
     } catch (error) {
-      res.status(401).json({
+      res.status(500).json({
         error: error.message
       });
     }
@@ -87,6 +105,14 @@ const authController = {
   checkEmailVerification: async (req, res) => {
     try {
       const { email } = req.params;
+      const requestingUser = req.user; // From auth middleware
+
+      // Only allow users to check their own email verification status
+      if (email.toLowerCase() !== requestingUser.email.toLowerCase()) {
+        return res.status(403).json({
+          error: 'You can only check your own email verification status'
+        });
+      }
       
       const { data, error } = await supabaseAdmin.auth.admin.listUsers({
         filters: {

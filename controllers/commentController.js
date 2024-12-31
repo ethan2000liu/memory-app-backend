@@ -5,25 +5,48 @@ const isOwner = (commentUserId, requesterId) => commentUserId === requesterId;
 
 // Add a new comment to a memory
 exports.addComment = async (req, res) => {
-  const { memory_id, user_id, content } = req.body;
+  const { memory_id, content } = req.body;
+  const user_id = req.user.user_id; // Get from auth token
 
   // Validate input
-  if (!memory_id || !user_id || !content) {
-    return res.status(400).json({ error: 'memory_id, user_id, and content are required' });
+  if (!memory_id || !content) {
+    return res.status(400).json({ error: 'memory_id and content are required' });
   }
 
   try {
-    const query = `
+    // First check if the memory exists
+    const memoryCheck = await db.query(
+      'SELECT * FROM memories WHERE id = $1',
+      [memory_id]
+    );
+
+    if (memoryCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Memory not found' });
+    }
+
+    // First insert the comment
+    const insertQuery = `
       INSERT INTO comments (memory_id, user_id, content)
       VALUES ($1, $2, $3)
-      RETURNING *;
+      RETURNING id;
     `;
-    const values = [memory_id, user_id, content];
-    const result = await db.query(query, values);
+    const insertResult = await db.query(insertQuery, [memory_id, user_id, content]);
+    
+    // Then get the comment with user info
+    const getCommentQuery = `
+      SELECT 
+        comments.*,
+        users.name as user_name,
+        users.avatar_url as user_avatar
+      FROM comments
+      JOIN users ON users.id = comments.user_id
+      WHERE comments.id = $1;
+    `;
+    const result = await db.query(getCommentQuery, [insertResult.rows[0].id]);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('Error adding comment:', err);
     res.status(500).json({ error: 'Error adding comment' });
   }
 };
@@ -36,11 +59,9 @@ exports.getCommentsByMemoryId = async (req, res) => {
   try {
     const query = `
       SELECT 
-        comments.id, 
-        comments.user_id, 
-        comments.content, 
-        comments.created_at, 
-        users.name AS user_name
+        comments.*,
+        users.name AS user_name,
+        users.avatar_url AS user_avatar
       FROM comments
       JOIN users ON comments.user_id = users.id
       WHERE comments.memory_id = $1
@@ -52,36 +73,43 @@ exports.getCommentsByMemoryId = async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
+    console.error('Error retrieving comments:', err);
     res.status(500).json({ error: 'Error retrieving comments' });
   }
 };
 
 // Delete a comment
 exports.deleteComment = async (req, res) => {
-  const { commentId, requester_id } = req.body;
+  const { comment_id } = req.body;
+  const user_id = req.user.user_id; // Get from auth token
+
+  if (!comment_id) {
+    return res.status(400).json({ error: 'comment_id is required' });
+  }
 
   try {
-    // Check if the comment exists and retrieve its user_id
-    const checkQuery = `SELECT * FROM comments WHERE id = $1;`;
-    const checkResult = await db.query(checkQuery, [commentId]);
+    // Check if user owns the comment
+    const comment = await db.query(
+      'SELECT * FROM comments WHERE id = $1',
+      [comment_id]
+    );
 
-    if (checkResult.rows.length === 0) {
+    if (comment.rows.length === 0) {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    const comment = checkResult.rows[0];
-    if (!isOwner(comment.user_id, requester_id)) {
+    if (comment.rows[0].user_id !== user_id) {
       return res.status(403).json({ error: 'Not authorized to delete this comment' });
     }
 
-    // Delete the comment
-    const deleteQuery = `DELETE FROM comments WHERE id = $1 RETURNING *;`;
-    const deleteResult = await db.query(deleteQuery, [commentId]);
+    await db.query(
+      'DELETE FROM comments WHERE id = $1',
+      [comment_id]
+    );
 
-    res.json({ message: 'Comment deleted successfully', comment: deleteResult.rows[0] });
+    res.json({ message: 'Comment deleted successfully' });
   } catch (err) {
-    console.error(err);
+    console.error('Error deleting comment:', err);
     res.status(500).json({ error: 'Error deleting comment' });
   }
 };

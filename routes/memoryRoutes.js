@@ -1,24 +1,23 @@
 const express = require('express');
 const memoryController = require('../controllers/memoryController');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-// Create a new memory
-router.post('/', memoryController.createMemory);
+// All memory routes should be protected
+router.use(authMiddleware);
 
-// Retrieve all memories for a user
+// Put specific routes before parameter routes
+router.get('/all', memoryController.getAllMemories);
+router.put('/privacy', memoryController.togglePrivacy);
+
+// Then put parameter routes
 router.get('/user/:userId', memoryController.getMemoriesByUser);
-
-// Retrieve a specific memory
 router.get('/:id', memoryController.getMemoryById);
 
-// Edit a memory
+// Other routes
+router.post('/', memoryController.createMemory);
 router.put('/', memoryController.editMemory);
-
-// Delete a memory
 router.delete('/', memoryController.deleteMemory);
-
-// Toggle memory privacy
-router.put('/privacy', memoryController.togglePrivacy);
 
 module.exports = router;
