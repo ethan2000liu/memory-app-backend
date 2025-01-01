@@ -418,3 +418,147 @@ Notes:
   - User didn't receive the original email
   - Email verification link not working
 - Rate limiting may apply (check Supabase settings)
+
+### Account Status Check
+GET /users/status/account
+
+- Requires authentication
+- Checks and updates account completion status
+
+Response (200):
+```json
+{
+  "status": "setup-needed" | "semi-setup" | "complete" | "suspended",
+  "user": {
+    "id": "user_uuid",
+    "email": "user@example.com",
+    "name": "User Name",
+    "bio": "User bio",
+    "avatar_url": "avatar.jpg",
+    "email_verified": true,
+    "created_at": "2024-XX-XX...",
+    "updated_at": "2024-XX-XX..."
+  },
+  "requirements": {
+    "email_verified": true,
+    "has_name": true,
+    "has_bio": true,
+    "has_avatar": true
+  }
+}
+```
+
+Status Definitions:
+- `setup-needed`: New account, email not verified
+- `semi-setup`: Email verified, has name
+- `complete`: All profile fields completed
+- `suspended`: Account manually suspended
+
+Frontend Usage:
+```typescript
+// Check account status
+const checkAccountStatus = async (token: string) => {
+  const response = await fetch(`${API_URL}/users/status/account`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to check account status');
+  }
+  
+  return response.json();
+};
+
+// Handle different statuses
+switch (status) {
+  case 'setup-needed':
+    // Redirect to email verification
+    break;
+  case 'semi-setup':
+    // Redirect to profile completion
+    break;
+  case 'complete':
+    // Allow full access
+    break;
+  case 'suspended':
+    // Show suspension message
+    break;
+}
+```
+
+### Update Account Status
+PUT /users/status/account
+
+- Requires authentication
+- Updates user's account status
+
+Request Body:
+```json
+{
+  "status": "setup-needed" | "semi-setup" | "complete" | "suspended"
+}
+```
+
+Success Response (200):
+```json
+{
+  "message": "Account status updated successfully",
+  "user": {
+    "id": "user_uuid",
+    "email": "user@example.com",
+    "name": "User Name",
+    "bio": "User bio",
+    "avatar_url": "avatar.jpg",
+    "account_status": "updated_status",
+    "created_at": "2024-XX-XX...",
+    "updated_at": "2024-XX-XX..."
+  }
+}
+```
+
+Invalid Status (400):
+```json
+{
+  "error": "Invalid status",
+  "valid_statuses": ["setup-needed", "semi-setup", "complete", "suspended"]
+}
+```
+
+Frontend Usage:
+```typescript
+const updateAccountStatus = async (token: string, status: string) => {
+  const response = await fetch(`${API_URL}/users/status/account`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update account status');
+  }
+
+  return response.json();
+};
+
+// Example usage:
+try {
+  await updateAccountStatus(token, 'complete');
+  // Show success message
+} catch (error) {
+  // Handle error
+  console.error('Failed to update status:', error);
+}
+```
+
+Notes:
+1. Only authenticated users can update their own status
+2. Status changes are logged via updated_at timestamp
+3. Invalid status values will return 400 error
+4. Frontend should confirm before setting 'suspended' status
+5. Consider adding admin-only endpoint for managing other users' statuses
