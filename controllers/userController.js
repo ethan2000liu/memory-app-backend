@@ -6,7 +6,7 @@ exports.getUserProfile = async (req, res) => {
 
   try {
     const query = `
-      SELECT id, name, email, avatar_url, created_at 
+      SELECT id, name, email, bio, avatar_url, created_at, updated_at
       FROM users 
       WHERE id = $1
     `;
