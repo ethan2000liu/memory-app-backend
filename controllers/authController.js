@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const userModel = require('../models/userModel');
 const jwt = require('jsonwebtoken');
+const db = require('../db');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -104,50 +105,48 @@ const authController = {
 
   checkEmailVerification: async (req, res) => {
     try {
-      const { email } = req.params;
-      const requestingUser = req.user; // From auth middleware
+      // Decode the email parameter
+      const email = decodeURIComponent(req.params.email);
 
-      // Only allow users to check their own email verification status
-      if (email.toLowerCase() !== requestingUser.email.toLowerCase()) {
-        return res.status(403).json({
-          error: 'You can only check your own email verification status'
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      console.log('Checking verification for email:', email);
+
+      // Query our users table directly
+      const query = `
+        SELECT 
+          u.id,
+          u.email,
+          u.created_at,
+          auth.users.email_confirmed_at IS NOT NULL as email_verified
+        FROM users u
+        JOIN auth.users ON u.email = auth.users.email
+        WHERE u.email = $1;
+      `;
+
+      const result = await db.query(query, [email]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          error: 'User not found',
+          email: email
         });
       }
-      
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-        filters: {
-          email: email.toLowerCase()
-        }
+
+      // Return user verification status
+      res.json({
+        email: result.rows[0].email,
+        email_verified: result.rows[0].email_verified,
+        created_at: result.rows[0].created_at
       });
 
-      if (error) throw error;
-
-      const user = data?.users?.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-      if (!user) {
-        return res.status(404).json({
-          error: 'User not found'
-        });
-      }
-
-      // Base response
-      const response = {
-        email: user.email,
-        email_verified: false // Default to false
-      };
-
-      // Only set to true and add verification_date if it exists
-      if (user.email_confirmed_at) {
-        response.email_verified = true;
-        response.verification_date = user.email_confirmed_at;
-      }
-
-      res.status(200).json(response);
-      
     } catch (error) {
-      console.error('Error checking email verification:', error);
-      res.status(500).json({
-        error: error.message
+      console.error('Error in checkEmailVerification:', error);
+      res.status(500).json({ 
+        error: 'Error checking email verification status',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   },

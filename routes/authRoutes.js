@@ -8,8 +8,6 @@ router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/logout', authController.logout);
 router.post('/resend-verification', authController.resendVerificationEmail);
-
-// Protected routes (auth required)
-router.get('/verify-email/:email', authMiddleware, authController.checkEmailVerification);
+router.get('/verify-email/:email', authController.checkEmailVerification);
 
 module.exports = router; 
