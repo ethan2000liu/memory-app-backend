@@ -77,6 +77,98 @@
   - Requires authentication
   - Returns 403 if trying to update other profiles
 
+### User Profile Updates
+PUT /users/profile
+
+- Requires authentication token
+- Updates authenticated user's own profile
+
+- Request Body:
+  ```json
+  {
+    "name": "Updated Name",
+    "bio": "Optional bio text",
+    "avatar_file": "optional-avatar-url.jpg"
+  }
+  ```
+
+- Success Response (200):
+  ```json
+  {
+    "message": "Profile updated successfully",
+    "user": {
+      "id": "user_uuid",
+      "name": "Updated Name",
+      "email": "user@example.com",
+      "bio": "Optional bio text",
+      "avatar_url": "avatar-url.jpg",
+      "created_at": "2024-XX-XX...",
+      "updated_at": "2024-XX-XX..."
+    }
+  }
+  ```
+
+- Not Found (404):
+  ```json
+  {
+    "error": "User not found"
+  }
+  ```
+
+- Server Error (500):
+  ```json
+  {
+    "error": "Error updating profile"
+  }
+  ```
+
+Example Usage:
+```bash
+curl -X PUT http://localhost:3000/users/profile \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Name",
+    "bio": "New bio"
+  }'
+```
+
+Notes:
+- Uses token to identify user (no ID in URL)
+- All fields are optional
+- Only updates provided fields
+- Cannot update other users' profiles
+
+### Profile Update Request Format
+```typescript
+interface UpdateProfileRequest {
+  name?: string;        // Optional
+  bio?: string;         // Optional
+  avatar_file?: string; // Optional, URL of uploaded file
+}
+
+// Example request:
+{
+  "name": "New Name",
+  "bio": "New bio text",
+  "avatar_file": "https://example.com/avatar.jpg"
+}
+
+// Minimal request (only update name):
+{
+  "name": "New Name"
+}
+```
+
+Notes for Frontend:
+1. All fields are optional
+2. Only send fields that need updating
+3. For avatar updates:
+   - First upload file to storage
+   - Then send the URL in avatar_file
+4. Handle 500 errors by showing "Error updating profile"
+5. Handle 404 errors by redirecting to login
+
 ### Memories
 - GET /memories/all
   - Now supports user_id query parameter
@@ -275,3 +367,54 @@ Notes:
 - Password requirements:
   - Minimum 6 characters
   - No other special requirements 
+
+### Resend Verification Email
+POST /auth/resend-verification
+
+- No authentication required
+
+- Request Body:
+  ```json
+  {
+    "email": "test@example.com"
+  }
+  ```
+
+- Success Response (200):
+  ```json
+  {
+    "message": "Verification email resent successfully",
+    "email": "test@example.com"
+  }
+  ```
+
+- Invalid Input (400):
+  ```json
+  {
+    "error": "Email is required"
+  }
+  ```
+
+- Server Error (500):
+  ```json
+  {
+    "error": "Error resending verification email"
+  }
+  ```
+
+Example Usage:
+```bash
+curl -X POST http://localhost:3000/auth/resend-verification \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com"
+  }'
+```
+
+Notes:
+- No authentication token required
+- Can be used when:
+  - Original verification email expired
+  - User didn't receive the original email
+  - Email verification link not working
+- Rate limiting may apply (check Supabase settings)
