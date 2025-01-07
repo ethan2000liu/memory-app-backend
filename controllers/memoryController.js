@@ -1,4 +1,6 @@
 const db = require('../db'); // Import database connection
+const AIService = require('../services/ai/aiService');
+const aiService = new AIService();
 
 // Helper function to check ownership
 const isOwner = (memoryUserId, requesterId) => memoryUserId === requesterId;
@@ -13,21 +15,56 @@ exports.createMemory = async (req, res) => {
   }
 
   try {
-    const query = `
-      INSERT INTO memories (user_id, description, file_url, tags, is_public)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *;
-    `;
-    const values = [user_id, description, file_url, tags, is_public || false];
-    const result = await db.query(query, values);
+    // If image is provided, analyze it
+    let imageAnalysis = null;
+    if (file_url) {
+      try {
+        imageAnalysis = await aiService.analyzeImage(file_url);
+        
+        // Use analysis to enhance tags and description
+        const enhancedTags = [...new Set([
+          ...(tags || []),
+          ...imageAnalysis.objects,
+          imageAnalysis.location.setting,
+          imageAnalysis.mood
+        ])];
 
-    return res.status(201).json({
-      message: 'Memory created successfully',
-      memory: result.rows[0],
-    });
-  } catch (err) {
-    console.error('Error creating memory:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+        // If no description provided, use the analysis
+        if (!description) {
+          description = imageAnalysis.description;
+        }
+
+        // Store the analysis with the memory
+        const query = `
+          INSERT INTO memories 
+          (user_id, description, file_url, tags, is_public, image_analysis, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+          RETURNING *;
+        `;
+
+        const result = await db.query(query, [
+          user_id,
+          description,
+          file_url,
+          enhancedTags,
+          is_public,
+          JSON.stringify(imageAnalysis)
+        ]);
+
+        res.status(201).json({
+          message: 'Memory created successfully',
+          memory: result.rows[0]
+        });
+      } catch (analysisError) {
+        console.error('Image analysis failed:', analysisError);
+        // Continue without analysis if it fails
+      }
+    }
+
+    // ... rest of the create memory logic
+  } catch (error) {
+    console.error('Error creating memory:', error);
+    res.status(500).json({ error: 'Error creating memory' });
   }
 };
 
@@ -295,5 +332,74 @@ exports.getAllMemories = async (req, res) => {
   } catch (err) {
     console.error('Error retrieving memories:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.enhanceMemory = async (req, res) => {
+  const { memory_id } = req.params;
+  const { generate, context } = req.body;
+
+  try {
+    const memory = await db.query('SELECT * FROM memories WHERE id = $1', [memory_id]);
+    
+    if (!memory.rows[0]) {
+      return res.status(404).json({ error: 'Memory not found' });
+    }
+
+    const enhancedContent = {};
+
+    // Add existing content to context
+    context.existing_content = {
+      description: memory.rows[0].description,
+      image_url: memory.rows[0].file_url,
+      music_url: memory.rows[0].generated_music_url
+    };
+
+    // Generate requested content
+    if (generate.story) {
+      const textResponse = await aiService.generateContent('text', context);
+      enhancedContent.generated_story = textResponse.content;
+    }
+
+    if (generate.image) {
+      const imageResponse = await aiService.generateContent('image', context);
+      enhancedContent.generated_image_url = imageResponse.content;
+    }
+
+    if (generate.music) {
+      const musicResponse = await aiService.generateContent('music', context);
+      enhancedContent.generated_music_url = musicResponse.content;
+    }
+
+    // Update memory with enhanced content
+    const updateQuery = `
+      UPDATE memories 
+      SET 
+        generated_story = COALESCE($1, generated_story),
+        generated_image_url = COALESCE($2, generated_image_url),
+        generated_music_url = COALESCE($3, generated_music_url),
+        ai_context = $4,
+        is_ai_enhanced = true,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
+      RETURNING *;
+    `;
+
+    const result = await db.query(updateQuery, [
+      enhancedContent.generated_story,
+      enhancedContent.generated_image_url,
+      enhancedContent.generated_music_url,
+      JSON.stringify(context),
+      memory_id
+    ]);
+
+    res.json({
+      message: 'Memory enhanced successfully',
+      memory: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error enhancing memory:', error);
+    res.status(500).json({ error: 'Error enhancing memory' });
   }
 };
